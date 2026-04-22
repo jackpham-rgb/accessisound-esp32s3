@@ -1,4 +1,4 @@
-# 🔊 AccessiSound — ESP32-S3 Accessibility Sound Recognition Assistant
+# AccessiSound — ESP32-S3 Accessibility Sound Recognition Assistant
 
 <div align="center">
 
@@ -17,23 +17,23 @@
 
 ---
 
-## 🎯 What It Does
+## What It Does
 
 AccessiSound listens continuously for specific sounds in the user's environment and provides immediate tactile (vibration) and audio feedback so that a visually impaired user knows what's happening around them — even without looking at a screen or phone.
 
 | Sound Detected | Vibration Pattern | Audio Alert |
 |---|---|---|
-| 🔔 Doorbell | 2 short pulses | Ding-dong tone |
-| 📳 Microwave | 3 rapid pulses | High beep |
-| 🔥 Fire alarm | Rapid continuous | Alternating tones |
-| 💨 Smoke alarm | Rapid continuous | Alternating tones |
-| 📱 Phone ring | Triple-pulse × 2 | Repeating tone |
+|  Doorbell | 2 short pulses | Ding-dong tone |
+|  Microwave | 3 rapid pulses | High beep |
+|  Fire alarm | Rapid continuous | Alternating tones |
+|  Smoke alarm | Rapid continuous | Alternating tones |
+|  Phone ring | Triple-pulse × 2 | Repeating tone |
 
 All processing happens **on-device** — the ESP32-S3 runs the TFLite Micro model with no internet connection required, making it suitable for use anywhere.
 
 ---
 
-## ✨ Features
+##  Features
 
 - **Real-time on-device inference** — ~50 ms latency on ESP32-S3
 - **MFCC feature extraction** implemented in C++ (no external DSP library needed)
@@ -45,7 +45,7 @@ All processing happens **on-device** — the ESP32-S3 runs the TFLite Micro mode
 
 ---
 
-## 🔩 Hardware
+##  Hardware
 
 ### Required Components
 
@@ -79,11 +79,11 @@ ESP32-S3-DevKitC-1
 └──────────────────────────────────────┘
 ```
 
-> 💡 **No hardware?** You can still train the model and explore the codebase — the ML pipeline runs entirely on your laptop using the ESC-50 dataset.
+**No hardware?** You can still train the model and explore the codebase — the ML pipeline runs entirely on your laptop using the ESC-50 dataset.
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Clone the repo
 
@@ -136,7 +136,7 @@ The device should vibrate and beep within ~1 second.
 
 ---
 
-## 🧠 Training Your Own Model
+## Training Your Own Model
 
 ### Dataset: ESC-50
 
@@ -179,7 +179,7 @@ Parameters: ~18,000  |  Quantised size: ~45 kB
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -212,7 +212,7 @@ Parameters: ~18,000  |  Quantised size: ~45 kB
 
 ---
 
-## 📁 Repository Structure
+## Repository Structure
 
 ```
 accessisound-esp32s3/
@@ -236,7 +236,7 @@ accessisound-esp32s3/
 
 ---
 
-## 📊 Performance
+## Performance
 
 | Metric | Value |
 |---|---|
@@ -249,7 +249,7 @@ accessisound-esp32s3/
 
 ---
 
-## 🗺️ Roadmap
+## Roadmap
 
 This was built during a hackathon. Future improvements:
 
@@ -261,13 +261,13 @@ This was built during a hackathon. Future improvements:
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 Pull requests are welcome! Please open an issue first to discuss what you'd like to change. If you have access to real microwave or doorbell recording equipment, audio clip contributions are especially valuable.
 
 ---
 
-## 📄 License
+## License
 
 This project is licensed under the **MIT License** — see [LICENSE](LICENSE) for details.
 
