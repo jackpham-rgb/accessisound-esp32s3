@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# ML artifacts (large — don't commit binaries)
+data/
+models/*.tflite
+models/*.keras
+models/best_model*
+models/sound_classifier_keras/
+
+# Keep the generated header (small, needed for firmware CI)
+!models/sound_model.h
+
+# PlatformIO
+firmware/.pio/
+firmware/.pioenvs/
+
+# VS Code
+.vscode/
+
+# macOS
+.DS_Store
+
+# Training reports (regenerate locally)
+models/training_report.png
