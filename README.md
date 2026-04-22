@@ -275,15 +275,10 @@ The [ESC-50 dataset](https://github.com/karolpiczak/ESC-50) used for training is
 
 ---
 
-## 🙏 Acknowledgements
+## Acknowledgements
 
 - [ESC-50 Dataset](https://github.com/karolpiczak/ESC-50) by Karol Piczak
 - [TensorFlow Lite for Microcontrollers](https://www.tensorflow.org/lite/microcontrollers)
 - [librosa](https://librosa.org/) — audio feature extraction
 - Hackathon teammates and mentors
 
----
-
-<div align="center">
-Built with ❤️ to make everyday sounds accessible to everyone.
-</div>
