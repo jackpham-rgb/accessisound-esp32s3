@@ -9,10 +9,17 @@
  *   I2S mic  →  ring buffer  →  FFT feature extraction
  *   →  threshold classifier  →  vibration / speaker alert
  *
- * Recognised sound classes (index → label):
+ * Recognised sound classes (index -> label):
  *   0  doorbell      3  smoke_alarm
  *   1  microwave     4  phone_ring
- *   2  fire_alarm    5  background (negative class)
+ *   2  fire_alarm
+ *
+ * NOTE: the model is a plain 5-way softmax (see ml/train_model.py) with no
+ * trained "background/silence" class, so it always picks one of the 5 real
+ * classes as "most likely," even on silence or unrelated noise. The
+ * CONFIDENCE_THR check below is the only thing stopping that from firing
+ * false alerts constantly; it is not a substitute for an actual negative
+ * class, which would need background-noise clips added to training.
  */
 
 #include <Arduino.h>
@@ -41,16 +48,17 @@
 #define CONFIDENCE_THR  0.72f   // minimum confidence to fire an alert
 
 // ── Sound label table ─────────────────────────────────────────────────────────
+// Must match LABEL_NAMES in ml/train_model.py exactly (same order, same
+// count) -- this is the model's real output layer, not a documentation
+// list. A mismatch here silently misreads the output tensor.
 static const char* SOUND_LABELS[] = {
     "Doorbell",
     "Microwave beep",
     "Fire alarm",
     "Smoke alarm",
-    "Phone ringing",
-    "Background noise"
+    "Phone ringing"
 };
 static const uint8_t N_CLASSES = sizeof(SOUND_LABELS) / sizeof(SOUND_LABELS[0]);
-static const uint8_t BACKGROUND_CLASS = N_CLASSES - 1;
 
 // ── Globals ───────────────────────────────────────────────────────────────────
 static int16_t  audioBuffer[FRAME_SIZE * 2];   // double-buffer
@@ -210,7 +218,7 @@ void loop() {
     float confidence[N_CLASSES];
     int8_t predicted = runInference(confidence);
 
-    if (predicted < 0 || predicted == BACKGROUND_CLASS) return;
+    if (predicted < 0) return;
     if (confidence[predicted] < CONFIDENCE_THR) return;
     if (muteMode) return;
 

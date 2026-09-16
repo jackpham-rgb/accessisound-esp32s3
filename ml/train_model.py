@@ -22,18 +22,22 @@ Output files:
 
 import argparse
 import os
+import pathlib
 import sys
 import zipfile
 import urllib.request
 import shutil
 
+# Windows' default console codepage (cp1252) can't print some Unicode
+# characters and raises UnicodeEncodeError instead of just printing a
+# question mark. Force UTF-8 stdout so any print() here is safe on Windows.
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding="utf-8")
+
 import numpy as np
 import pandas as pd
 import librosa
 import matplotlib.pyplot as plt
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report, confusion_matrix
-import seaborn as sns
 
 # ── Silence TF verbose output ─────────────────────────────────────────────────
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
@@ -51,22 +55,74 @@ BATCH_SIZE   = 32
 EPOCHS       = 50
 SEED         = 42
 
-# Map ESC-50 category names → our class indices
-# ESC-50 categories: https://github.com/karolpiczak/ESC-50#license
+# Map ESC-50 category names to our class indices.
+# ESC-50 only has 50 fixed categories (see the list in its own README:
+# https://github.com/karolpiczak/ESC-50#animals), and NONE of them are an
+# actual doorbell, smoke alarm, or phone ring. Every mapping below is a
+# stand-in, picked for "sounds roughly similar," not a real match. Swap
+# these for your own recordings of the real sounds when you have them
+# (see "Add Your Own Sounds" in the README).
 TARGET_CLASSES = {
-    "door_wood_knock": 0,   # proxy for doorbell (ESC-50 has no doorbell)
-    "clock_alarm":     2,   # fire_alarm proxy
-    "smoke_detector":  3,   # exact match
-    "phone":           4,   # phone_ring
-    # class 1 (microwave): use hand_saw as a synthetic stand-in;
-    # replace with real microwave clips in production
-    "hand_saw":        1,
+    "door_wood_knock": 0,   # doorbell proxy (closest available: a knock)
+    "hand_saw":        1,   # microwave-beep proxy (just a distinct proxy tone)
+    "siren":           2,   # fire_alarm proxy (urgent alarm-like tone)
+    "clock_alarm":     3,   # smoke_alarm proxy (different alarm tone than class 2,
+                             # so the two "alarm" classes are not the same sound)
+    "church_bells":    4,   # phone_ring proxy (repeating tonal ring)
 }
 LABEL_NAMES = [
     "Doorbell", "Microwave", "Fire alarm",
     "Smoke alarm", "Phone ring"
 ]
 N_CLASSES = len(LABEL_NAMES)
+
+# ── Small numpy-only helpers (no scikit-learn / seaborn needed) ────────────────
+# This used to pull in scikit-learn just for a train/test split and a
+# confusion matrix. That's a heavyweight dependency (compiled Cython
+# extensions) for something this simple, and it can fail to import on
+# locked-down machines that block unsigned native DLLs. All three functions
+# below are plain numpy.
+
+def stratified_split(X: np.ndarray, y: np.ndarray, test_size: float, seed: int):
+    """Split (X, y) so each class keeps the same proportion in both halves."""
+    rng = np.random.default_rng(seed)
+    train_idx, test_idx = [], []
+    for c in np.unique(y):
+        idx = np.where(y == c)[0]
+        rng.shuffle(idx)
+        n_test = max(1, int(round(len(idx) * test_size)))
+        test_idx.extend(idx[:n_test])
+        train_idx.extend(idx[n_test:])
+    train_idx, test_idx = np.array(train_idx), np.array(test_idx)
+    rng.shuffle(train_idx)
+    rng.shuffle(test_idx)
+    return X[train_idx], X[test_idx], y[train_idx], y[test_idx]
+
+
+def confusion_matrix(y_true: np.ndarray, y_pred: np.ndarray, n_classes: int) -> np.ndarray:
+    cm = np.zeros((n_classes, n_classes), dtype=int)
+    for t, p in zip(y_true, y_pred):
+        cm[t, p] += 1
+    return cm
+
+
+def classification_report(y_true: np.ndarray, y_pred: np.ndarray, target_names) -> str:
+    """Plain-text per-class precision / recall / f1 / support, plus overall accuracy."""
+    n_classes = len(target_names)
+    cm = confusion_matrix(y_true, y_pred, n_classes)
+    lines = [f"{'':<15}{'precision':>10}{'recall':>10}{'f1-score':>10}{'support':>10}"]
+    for c in range(n_classes):
+        support = int(cm[c, :].sum())
+        predicted_positive = int(cm[:, c].sum())
+        precision = cm[c, c] / predicted_positive if predicted_positive else 0.0
+        recall = cm[c, c] / support if support else 0.0
+        f1 = 2 * precision * recall / (precision + recall) if (precision + recall) else 0.0
+        lines.append(f"{target_names[c]:<15}{precision:>10.2f}{recall:>10.2f}{f1:>10.2f}{support:>10d}")
+    total = int(cm.sum())
+    accuracy = np.trace(cm) / total if total else 0.0
+    lines.append(f"\n{'accuracy':<15}{'':>20}{accuracy:>10.2f}{total:>10d}")
+    return "\n".join(lines)
+
 
 # ── Download ESC-50 ───────────────────────────────────────────────────────────
 def download_dataset():
@@ -117,7 +173,7 @@ def extract_mfcc_window(filepath: str) -> np.ndarray:
     from scipy.ndimage import zoom
     current_frames = mfccs.shape[1]
     mfccs_resized = zoom(mfccs, (1, N_FRAMES / current_frames))
-    # Transpose → (N_FRAMES, N_MFCC) to match firmware layout
+    # Transpose -> (N_FRAMES, N_MFCC) to match firmware layout
     return mfccs_resized.T[:N_FRAMES, :N_MFCC].astype(np.float32)
 
 
@@ -153,7 +209,7 @@ def build_dataset():
 def build_model() -> tf.keras.Model:
     """
     Compact CNN designed to fit within the ESP32-S3's 60 kB tensor arena.
-    Input shape : (N_FRAMES, N_MFCC, 1)  →  e.g. (32, 13, 1)
+    Input shape : (N_FRAMES, N_MFCC, 1)  ->  e.g. (32, 13, 1)
     Output      : softmax over N_CLASSES
     """
     inp = tf.keras.Input(shape=(N_FRAMES, N_MFCC, 1), name="mfcc_input")
@@ -202,7 +258,7 @@ def convert_to_tflite(model: tf.keras.Model, X_train: np.ndarray):
     tflite_model = converter.convert()
     with open(tflite_path, "wb") as f:
         f.write(tflite_model)
-    print(f"[EXPORT] TFLite model saved → {tflite_path} ({len(tflite_model)/1024:.1f} kB)")
+    print(f"[EXPORT] TFLite model saved -> {tflite_path} ({len(tflite_model)/1024:.1f} kB)")
 
     # Generate C header for firmware inclusion
     _generate_c_header(tflite_model)
@@ -227,45 +283,60 @@ const uint32_t sound_model_data_len = {len(model_data)};
 """
     with open(header_path, "w") as f:
         f.write(header)
-    print(f"[EXPORT] C header saved → {header_path}")
-    shutil.copy(header_path, "firmware/src/sound_model.h")
-    print(f"[EXPORT] Copied → firmware/src/sound_model.h")
+    print(f"[EXPORT] C header saved -> {header_path}")
+
+    # Resolve firmware/src relative to THIS FILE, not the current working
+    # directory. The README tells you to `cd ml` before running this
+    # script, so a plain relative "firmware/src/..." path would look in
+    # the wrong place and fail.
+    repo_root = pathlib.Path(__file__).resolve().parent.parent
+    firmware_dest = repo_root / "firmware" / "src" / "sound_model.h"
+    shutil.copy(header_path, firmware_dest)
+    print(f"[EXPORT] Copied -> firmware/src/sound_model.h")
 
 
 # ── Training report ───────────────────────────────────────────────────────────
 def save_report(history, y_test, y_pred):
+    """`history` is None when called from --evaluate (no training happened
+    this run), in which case we only have a confusion matrix to show."""
     os.makedirs(MODELS_DIR, exist_ok=True)
 
-    fig, axes = plt.subplots(1, 3, figsize=(18, 5))
+    n_plots = 3 if history is not None else 1
+    fig, axes = plt.subplots(1, n_plots, figsize=(6 * n_plots, 5))
+    axes = [axes] if n_plots == 1 else axes
     fig.suptitle("AccessiSound: Training Report", fontsize=14, weight="bold")
 
-    # Accuracy
-    axes[0].plot(history.history["accuracy"],     label="Train")
-    axes[0].plot(history.history["val_accuracy"], label="Val")
-    axes[0].set_title("Accuracy")
-    axes[0].set_xlabel("Epoch"); axes[0].set_ylabel("Accuracy")
-    axes[0].legend(); axes[0].grid(alpha=0.3)
+    if history is not None:
+        axes[0].plot(history.history["accuracy"],     label="Train")
+        axes[0].plot(history.history["val_accuracy"], label="Val")
+        axes[0].set_title("Accuracy")
+        axes[0].set_xlabel("Epoch"); axes[0].set_ylabel("Accuracy")
+        axes[0].legend(); axes[0].grid(alpha=0.3)
 
-    # Loss
-    axes[1].plot(history.history["loss"],     label="Train")
-    axes[1].plot(history.history["val_loss"], label="Val")
-    axes[1].set_title("Loss")
-    axes[1].set_xlabel("Epoch"); axes[1].set_ylabel("Loss")
-    axes[1].legend(); axes[1].grid(alpha=0.3)
+        axes[1].plot(history.history["loss"],     label="Train")
+        axes[1].plot(history.history["val_loss"], label="Val")
+        axes[1].set_title("Loss")
+        axes[1].set_xlabel("Epoch"); axes[1].set_ylabel("Loss")
+        axes[1].legend(); axes[1].grid(alpha=0.3)
 
-    # Confusion matrix
-    cm = confusion_matrix(y_test, y_pred)
-    sns.heatmap(cm, annot=True, fmt="d", ax=axes[2],
-                xticklabels=LABEL_NAMES, yticklabels=LABEL_NAMES,
-                cmap="Blues")
-    axes[2].set_title("Confusion Matrix")
-    axes[2].set_xlabel("Predicted"); axes[2].set_ylabel("True")
-    plt.xticks(rotation=30, ha="right")
+    # Confusion matrix (always shown; it's the last axis either way)
+    cm_ax = axes[-1]
+    cm = confusion_matrix(y_test, y_pred, N_CLASSES)
+    im = cm_ax.imshow(cm, cmap="Blues")
+    cm_ax.set_xticks(range(N_CLASSES)); cm_ax.set_xticklabels(LABEL_NAMES, rotation=30, ha="right")
+    cm_ax.set_yticks(range(N_CLASSES)); cm_ax.set_yticklabels(LABEL_NAMES)
+    for i in range(N_CLASSES):
+        for j in range(N_CLASSES):
+            color = "white" if cm[i, j] > cm.max() / 2 else "black"
+            cm_ax.text(j, i, str(cm[i, j]), ha="center", va="center", color=color)
+    fig.colorbar(im, ax=cm_ax, fraction=0.046, pad=0.04)
+    cm_ax.set_title("Confusion Matrix")
+    cm_ax.set_xlabel("Predicted"); cm_ax.set_ylabel("True")
 
     plt.tight_layout()
     out = os.path.join(MODELS_DIR, "training_report.png")
     plt.savefig(out, dpi=150)
-    print(f"[REPORT] Saved → {out}")
+    print(f"[REPORT] Saved -> {out}")
     plt.close()
 
     # Text report
@@ -280,6 +351,9 @@ def main():
                         help="Skip dataset download (ESC-50 already in ./data/)")
     parser.add_argument("--evaluate", action="store_true",
                         help="Only evaluate the existing .tflite model")
+    parser.add_argument("--epochs", type=int, default=EPOCHS,
+                        help=f"Training epochs (default {EPOCHS}; use a small "
+                             "number like 3-5 for a quick smoke test)")
     args = parser.parse_args()
 
     tf.random.set_seed(SEED)
@@ -291,20 +365,18 @@ def main():
 
     X, y = build_dataset()
 
-    # Add channel dim for CNN: (N, frames, mfcc) → (N, frames, mfcc, 1)
+    # Add channel dim for CNN: (N, frames, mfcc) -> (N, frames, mfcc, 1)
     X = X[..., np.newaxis]
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, stratify=y, random_state=SEED)
-    X_train, X_val, y_train, y_val = train_test_split(
-        X_train, y_train, test_size=0.15, stratify=y_train, random_state=SEED)
+    X_train, X_test, y_train, y_test = stratified_split(X, y, test_size=0.2, seed=SEED)
+    X_train, X_val, y_train, y_val = stratified_split(X_train, y_train, test_size=0.15, seed=SEED)
 
     print(f"[SPLIT] Train={len(X_train)} | Val={len(X_val)} | Test={len(X_test)}")
 
     if args.evaluate:
         print("[EVAL] Load existing model and evaluate.")
         model = tf.keras.models.load_model(
-            os.path.join(MODELS_DIR, "sound_classifier_keras"))
+            os.path.join(MODELS_DIR, "sound_classifier.keras"))
         y_pred = model.predict(X_test).argmax(axis=1)
         save_report(None, y_test, y_pred)
         return
@@ -325,7 +397,7 @@ def main():
     history = model.fit(
         X_train, y_train,
         validation_data=(X_val, y_val),
-        epochs=EPOCHS,
+        epochs=args.epochs,
         batch_size=BATCH_SIZE,
         callbacks=callbacks,
         verbose=1
@@ -338,12 +410,12 @@ def main():
     save_report(history, y_test, y_pred)
 
     # ── Step 4: Export ───────────────────────────────────────────────────────
-    model.save(os.path.join(MODELS_DIR, "sound_classifier_keras"))
+    model.save(os.path.join(MODELS_DIR, "sound_classifier.keras"))
     convert_to_tflite(model, X_train)
 
-    print("\n✅ Pipeline complete!")
+    print("\n[DONE] Pipeline complete!")
     print("   Next steps:")
-    print("   1. Copy models/sound_model.h → firmware/src/")
+    print("   1. Copy models/sound_model.h -> firmware/src/")
     print("   2. Open firmware/ in VS Code + PlatformIO")
     print("   3. Connect ESP32-S3 and run: pio run --target upload")
 
