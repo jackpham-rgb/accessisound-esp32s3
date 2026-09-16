@@ -1,4 +1,4 @@
-# AccessiSound — ESP32-S3 Accessibility Sound Recognition Assistant
+# AccessiSound: ESP32-S3 Accessibility Sound Recognition Assistant
 
 <div align="center">
 
@@ -9,7 +9,7 @@
 ![License](https://img.shields.io/badge/License-MIT-purple)
 ![Status](https://img.shields.io/badge/Status-Hackathon%20Prototype-yellow)
 
-**A compact, offline assistive device that recognises environmental sounds and alerts visually impaired users via vibration and audio feedback — no cloud, no phone required.**
+**A compact, offline assistive device that recognises environmental sounds and alerts visually impaired users via vibration and audio feedback. No cloud, no phone required.**
 
 [Features](#-features) · [Hardware](#-hardware) · [Quick Start](#-quick-start) · [Training](#-training-your-own-model) · [Architecture](#-architecture) · [Roadmap](#-roadmap)
 
@@ -19,7 +19,7 @@
 
 ## What It Does
 
-AccessiSound listens continuously for specific sounds in the user's environment and provides immediate tactile (vibration) and audio feedback so that a visually impaired user knows what's happening around them — even without looking at a screen or phone.
+AccessiSound listens continuously for specific sounds in the user's environment. It gives immediate tactile (vibration) and audio feedback, so a visually impaired user knows what's happening around them, even without looking at a screen or phone.
 
 | Sound Detected | Vibration Pattern | Audio Alert |
 |---|---|---|
@@ -29,19 +29,19 @@ AccessiSound listens continuously for specific sounds in the user's environment 
 |  Smoke alarm | Rapid continuous | Alternating tones |
 |  Phone ring | Triple-pulse × 2 | Repeating tone |
 
-All processing happens **on-device** — the ESP32-S3 runs the TFLite Micro model with no internet connection required, making it suitable for use anywhere.
+All processing happens **on-device**. The ESP32-S3 runs the TFLite Micro model with no internet connection required, so it works anywhere.
 
 ---
 
 ##  Features
 
-- **Real-time on-device inference** — ~50 ms latency on ESP32-S3
+- **Real-time on-device inference**: ~50 ms latency on ESP32-S3
 - **MFCC feature extraction** implemented in C++ (no external DSP library needed)
-- **Compact CNN model** — ~40–60 kB quantised, fits in ESP32-S3 SRAM
+- **Compact CNN model**: ~40–60 kB quantised, fits in ESP32-S3 SRAM
 - **Unique alert patterns** per sound class so users can distinguish events by feel
 - **Mute toggle** via onboard BOOT button
 - **Offline training pipeline** using the open-source [ESC-50 dataset](https://github.com/karolpiczak/ESC-50)
-- **C header export** — model auto-converted and ready to include in firmware
+- **C header export**: model auto-converted and ready to include in firmware
 
 ---
 
@@ -79,7 +79,7 @@ ESP32-S3-DevKitC-1
 └──────────────────────────────────────┘
 ```
 
-**No hardware?** You can still train the model and explore the codebase — the ML pipeline runs entirely on your laptop using the ESC-50 dataset.
+**No hardware?** You can still train the model and explore the codebase. The ML pipeline runs entirely on your laptop using the ESC-50 dataset.
 
 ---
 
@@ -253,11 +253,11 @@ accessisound-esp32s3/
 
 This was built during a hackathon. Future improvements:
 
-- [ ] **v1.1** — Wake-word detection to reduce false positives
-- [ ] **v1.2** — BLE companion app (iOS / Android) for configuration
-- [ ] **v2.0** — Upgrade to ESP32-CAM for vision-based alerts ([Ultimate Version](docs/ultimate-version.md))
-- [ ] **v2.1** — Larger dataset with real microwave / doorbell recordings
-- [ ] **v2.2** — OTA model updates over Wi-Fi
+- [ ] **v1.1**: Wake-word detection to reduce false positives
+- [ ] **v1.2**: BLE companion app (iOS / Android) for configuration
+- [ ] **v2.0**: Upgrade to ESP32-CAM for vision-based alerts ([Ultimate Version](docs/ultimate-version.md))
+- [ ] **v2.1**: Larger dataset with real microwave / doorbell recordings
+- [ ] **v2.2**: OTA model updates over Wi-Fi
 
 ---
 
@@ -269,7 +269,7 @@ Pull requests are welcome! Please open an issue first to discuss what you'd like
 
 ## License
 
-This project is licensed under the **MIT License** — see [LICENSE](LICENSE) for details.
+This project is licensed under the **MIT License**. See [LICENSE](LICENSE) for details.
 
 The [ESC-50 dataset](https://github.com/karolpiczak/ESC-50) used for training is licensed under **CC BY (Creative Commons Attribution)**.
 
@@ -279,6 +279,6 @@ The [ESC-50 dataset](https://github.com/karolpiczak/ESC-50) used for training is
 
 - [ESC-50 Dataset](https://github.com/karolpiczak/ESC-50) by Karol Piczak
 - [TensorFlow Lite for Microcontrollers](https://www.tensorflow.org/lite/microcontrollers)
-- [librosa](https://librosa.org/) — audio feature extraction
+- [librosa](https://librosa.org/): audio feature extraction
 - Hackathon teammates and mentors
 

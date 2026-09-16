@@ -1,5 +1,5 @@
 /*
- * AccessiSound — ESP32-S3 Accessibility Sound Recognition Assistant
+ * AccessiSound: ESP32-S3 Accessibility Sound Recognition Assistant
  * Hackathon Prototype v1.0
  *
  * Target Board : ESP32-S3-DevKitC-1 (or any ESP32-S3 with MEMS mic)
@@ -33,7 +33,7 @@
 #define BOOT_BTN_PIN    0       // onboard BOOT button (mute toggle)
 
 // ── Audio constants ───────────────────────────────────────────────────────────
-#define SAMPLE_RATE     16000   // Hz — matches training pipeline
+#define SAMPLE_RATE     16000   // Hz, matches training pipeline
 #define FRAME_SIZE      512     // samples per FFT frame
 #define HOP_SIZE        256     // 50 % overlap
 #define N_MFCC          13      // MFCC coefficients per frame
@@ -147,7 +147,7 @@ int8_t runInference(float confidence[]) {
         return -1;
     }
 
-    // Softmax output — find argmax
+    // Softmax output: find argmax
     int8_t bestClass = 0;
     float  bestScore = 0.0f;
     for (uint8_t i = 0; i < N_CLASSES; ++i) {
@@ -165,7 +165,7 @@ int8_t runInference(float confidence[]) {
 void setup() {
     Serial.begin(115200);
     delay(500);
-    Serial.println("\n=== AccessiSound v1.0 — ESP32-S3 ===");
+    Serial.println("\n=== AccessiSound v1.0 - ESP32-S3 ===");
 
     // GPIO setup
     pinMode(LED_RED_PIN,   OUTPUT);

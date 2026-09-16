@@ -1,5 +1,5 @@
 /*
- * feature_extractor.h — MFCC / FFT feature extraction helper
+ * feature_extractor.h: MFCC / FFT feature extraction helper
  * Runs entirely on ESP32-S3 without external DSP library dependencies.
  */
 
@@ -27,7 +27,7 @@ public:
     /*
      * computeMFCC()
      * Input : raw int16 PCM samples (frameSize samples)
-     * Output: mfcc[nMFCC] — normalised float coefficients
+     * Output: mfcc[nMFCC], normalised float coefficients
      */
     void computeMFCC(const int16_t* samples, uint16_t len, float* mfcc) {
         static float frame[512];

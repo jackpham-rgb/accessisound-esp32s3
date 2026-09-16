@@ -9,7 +9,7 @@ env/
 dist/
 build/
 
-# ML artifacts (large — don't commit binaries)
+# ML artifacts (large, don't commit binaries)
 data/
 models/*.tflite
 models/*.keras

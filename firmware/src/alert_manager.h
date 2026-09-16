@@ -1,14 +1,14 @@
 /*
- * alert_manager.h — vibration motor + passive buzzer alert patterns
+ * alert_manager.h: vibration motor + passive buzzer alert patterns
  *
  * Each sound class gets a unique haptic/audio pattern so a visually
  * impaired user can distinguish events without looking at any display.
  *
- *  Class 0 — Doorbell    : two short vibration pulses + two rising tones
- *  Class 1 — Microwave   : three rapid pulses + high-pitch beep
- *  Class 2 — Fire alarm  : continuous rapid buzz + alternating tones
- *  Class 3 — Smoke alarm : same as fire alarm (safety critical)
- *  Class 4 — Phone ring  : repeating triple pulse
+ *  Class 0 (Doorbell): two short vibration pulses + two rising tones
+ *  Class 1 (Microwave): three rapid pulses + high-pitch beep
+ *  Class 2 (Fire alarm): continuous rapid buzz + alternating tones
+ *  Class 3 (Smoke alarm): same as fire alarm (safety critical)
+ *  Class 4 (Phone ring): repeating triple pulse
  */
 
 #pragma once

@@ -1,4 +1,4 @@
-# AccessiSound — Python ML dependencies
+# AccessiSound: Python ML dependencies
 # Install with: pip install -r requirements.txt
 
 # Core ML
