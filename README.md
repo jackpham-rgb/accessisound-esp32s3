@@ -1,284 +1,210 @@
-# AccessiSound: ESP32-S3 Accessibility Sound Recognition Assistant
+# AccessiSound: ESP32-S3 Sound Recognition Assistant
 
-<div align="center">
+Use this if you need a small, offline device that listens for a few specific
+household sounds (doorbell, microwave beep, fire/smoke alarm, phone ring) and
+turns them into a vibration + buzzer pattern, for someone who can't rely on
+hearing them. Everything runs on the ESP32-S3 itself: no phone, no cloud, no
+internet connection.
 
-![Platform](https://img.shields.io/badge/Platform-ESP32--S3-red?logo=espressif)
-![Framework](https://img.shields.io/badge/Framework-Arduino%20%7C%20PlatformIO-blue)
-![ML](https://img.shields.io/badge/ML-TFLite%20Micro-orange?logo=tensorflow)
-![Dataset](https://img.shields.io/badge/Dataset-ESC--50%20(CC--BY)-green)
-![License](https://img.shields.io/badge/License-MIT-purple)
-![Status](https://img.shields.io/badge/Status-Hackathon%20Prototype-yellow)
+Built as a hackathon prototype. It has not been assembled on physical
+hardware yet; there's no photo, video, or bench-test proof to show here. The
+wiring below is exactly what `firmware/src/main.cpp` expects, and the ML
+pipeline is real and runs end to end on your laptop (see "Try it without any
+hardware" below), but the ESP32-S3 side is untested until someone actually
+builds it. Treat the pin list as a build plan, not a demonstrated result.
 
-**A compact, offline assistive device that recognises environmental sounds and alerts visually impaired users via vibration and audio feedback. No cloud, no phone required.**
+## What it does
 
-[Features](#-features) · [Hardware](#-hardware) · [Quick Start](#-quick-start) · [Training](#-training-your-own-model) · [Architecture](#-architecture) · [Roadmap](#-roadmap)
+The device listens continuously through a microphone. When it recognizes one
+of 5 trained sounds with enough confidence, it vibrates and beeps in a
+pattern unique to that sound, so you can tell events apart by feel alone.
 
-</div>
-
----
-
-## What It Does
-
-AccessiSound listens continuously for specific sounds in the user's environment. It gives immediate tactile (vibration) and audio feedback, so a visually impaired user knows what's happening around them, even without looking at a screen or phone.
-
-| Sound Detected | Vibration Pattern | Audio Alert |
+| Sound | Vibration | Buzzer |
 |---|---|---|
-|  Doorbell | 2 short pulses | Ding-dong tone |
-|  Microwave | 3 rapid pulses | High beep |
-|  Fire alarm | Rapid continuous | Alternating tones |
-|  Smoke alarm | Rapid continuous | Alternating tones |
-|  Phone ring | Triple-pulse × 2 | Repeating tone |
+| Doorbell | 2 pulses, twice | rising two-tone "ding-dong" |
+| Microwave beep | 3 quick pulses | 3 high beeps |
+| Fire alarm | continuous rapid | alternating high/low tones |
+| Smoke alarm | same as fire alarm | same as fire alarm |
+| Phone ringing | 3 pulses, twice | 3 mid tones, twice |
 
-All processing happens **on-device**. The ESP32-S3 runs the TFLite Micro model with no internet connection required, so it works anywhere.
+All of the above is decided on-device by a small CNN (about 45 KB, quantized
+to int8) running on TensorFlow Lite Micro. No data leaves the board.
 
----
+## Parts list
 
-##  Features
-
-- **Real-time on-device inference**: ~50 ms latency on ESP32-S3
-- **MFCC feature extraction** implemented in C++ (no external DSP library needed)
-- **Compact CNN model**: ~40–60 kB quantised, fits in ESP32-S3 SRAM
-- **Unique alert patterns** per sound class so users can distinguish events by feel
-- **Mute toggle** via onboard BOOT button
-- **Offline training pipeline** using the open-source [ESC-50 dataset](https://github.com/karolpiczak/ESC-50)
-- **C header export**: model auto-converted and ready to include in firmware
-
----
-
-##  Hardware
-
-### Required Components
-
-| Component | Notes | Approximate Cost |
+| Part | Notes | Rough cost |
 |---|---|---|
-| ESP32-S3-DevKitC-1 | Main MCU + USB-C | ~$10 USD |
-| INMP441 I2S MEMS Microphone | 16-bit, low-noise | ~$2 |
-| ERM Vibration Motor (3 V) | With transistor driver | ~$1 |
-| Passive Buzzer / Small Speaker | 8Ω, ≤1W | ~$0.50 |
-| NPN Transistor (e.g. 2N2222) | For vibration motor | ~$0.10 |
-| 100Ω resistor (×2), 1kΩ resistor | Pull-ups / base resistor | ~$0.05 |
-| Breadboard + jumper wires | Prototyping | ~$3 |
+| ESP32-S3-DevKitC-1 | the main board | ~$10 |
+| INMP441 I2S microphone | digital MEMS mic | ~$2 |
+| Vibration motor (3V ERM) | needs a transistor to drive it, GPIO can't power it directly | ~$1 |
+| Passive buzzer | 8 ohm, small | ~$0.50 |
+| NPN transistor (2N2222 or similar) | switches the vibration motor | ~$0.10 |
+| Red LED + green LED | status indicators | ~$0.10 |
+| Resistors: 100 ohm x2, 1 kOhm x1, 220 ohm x2 | 100R for buzzer/transistor base, 1k transistor base, 220R for the two LEDs | ~$0.10 |
+| Breadboard + jumper wires | prototyping | ~$3 |
 
-**Total: ~$17 USD**
+Total: roughly $17.
 
-### Wiring Diagram
+## Wiring
 
-```
-ESP32-S3-DevKitC-1
-┌──────────────────────────────────────┐
-│  GPIO 42 ──────────────── WS   │INMP441
-│  GPIO 41 ──────────────── SCK  │(I2S Mic)
-│  GPIO  2 ──────────────── SD   │
-│  3.3 V  ──────────────── VDD  │
-│  GND    ──────────────── GND  │
-│                                      │
-│  GPIO 10 ── 100Ω ── Base(2N2222)     │ Vibration Motor
-│             Emitter ── GND           │ (Collector → Motor → 3.3V)
-│                                      │
-│  GPIO 11 ── 100Ω ── Buzzer+ ── GND  │ Passive Buzzer
-└──────────────────────────────────────┘
-```
+Every pin number below comes straight from `firmware/src/main.cpp`'s `#define`
+block. If you change a pin there, update it here too.
 
-**No hardware?** You can still train the model and explore the codebase. The ML pipeline runs entirely on your laptop using the ESC-50 dataset.
+**Microphone (INMP441, I2S):**
+- ESP32-S3 GPIO 42 to mic WS
+- ESP32-S3 GPIO 41 to mic SCK
+- ESP32-S3 GPIO 2 to mic SD
+- ESP32-S3 3.3V to mic VDD
+- ESP32-S3 GND to mic GND
 
----
+**Vibration motor (through a transistor, since a GPIO pin can't supply enough current for a motor):**
+- ESP32-S3 GPIO 10 to a 100 ohm resistor to the transistor's base
+- Transistor emitter to GND
+- Transistor collector to the motor, and the motor's other lead to 3.3V
 
-## Quick Start
+**Buzzer:**
+- ESP32-S3 GPIO 11 to a 100 ohm resistor to the buzzer's positive lead
+- Buzzer negative lead to GND
+
+**Status LEDs:**
+- ESP32-S3 GPIO 38 to a 220 ohm resistor to the red LED's anode, LED cathode to GND
+- ESP32-S3 GPIO 39 to a 220 ohm resistor to the green LED's anode, LED cathode to GND
+
+**Mute button:**
+- GPIO 0 is the DevKitC-1's onboard BOOT button. It's already wired on the
+  board, nothing extra to connect. Press it to toggle mute.
+
+## No hardware? Try the ML pipeline anyway
+
+The training and demo scripts are plain Python and don't need an ESP32-S3 at
+all.
 
 ### 1. Clone the repo
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/accessisound-esp32s3.git
+git clone https://github.com/jackpham-rgb/accessisound-esp32s3.git
 cd accessisound-esp32s3
 ```
 
-### 2. Train the model (on your laptop)
+### 2. Set up and train
 
 ```bash
 cd ml
+python -m venv .venv
+source .venv/bin/activate      # or .venv\Scripts\activate on Windows
 pip install -r requirements.txt
 python train_model.py
 ```
 
-This will:
-- Download ESC-50 automatically (~600 MB, one time)
-- Extract MFCC features
-- Train a compact CNN (~50 epochs)
-- Export `models/sound_classifier.tflite`
-- Copy `models/sound_model.h` → `firmware/src/sound_model.h` automatically
+This downloads ESC-50 (a free, CC-BY-licensed sound dataset, about 600 MB,
+one-time), extracts MFCC features, trains the CNN, and writes:
+- `models/sound_classifier.tflite`: flash this onto the ESP32-S3
+- `models/sound_model.h`: also auto-copied to `firmware/src/sound_model.h`
+- `models/training_report.png`: accuracy/loss curves and a confusion matrix
 
-Expected test accuracy: **~78–85%** on the 5-class subset.
+Measured test accuracy on this dataset: about 47-53% across 5 classes (a
+random guess would get 20%). That's real but not great, and there's a
+concrete reason: ESC-50 doesn't actually contain a doorbell, smoke alarm, or
+phone ring sound. Every class is trained on the closest available stand-in
+(see the comment above `TARGET_CLASSES` in `train_model.py` for exactly
+which). Swap in real recordings of your own doorbell, alarm, and phone (see
+"Use your own sounds" below) and accuracy should improve a lot, since the
+model would then be learning the actual sounds instead of proxies for them.
 
-### 3. Flash the firmware
+Want a faster run to check the pipeline works, without waiting for full
+training: `python train_model.py --skip-download --epochs 5`.
 
-Make sure [PlatformIO](https://platformio.org/) is installed (VS Code extension recommended).
+### 3. Try it without any hardware
+
+```bash
+python demo.py
+```
+
+With no argument, this grabs a random labeled clip from ESC-50 and runs it
+through the trained model, exactly like the firmware would: same feature
+extraction, same model, same 72% confidence threshold. It prints the
+confidence for every class and tells you whether the real device would have
+fired an alert. Pass your own WAV file instead: `python demo.py path/to/clip.wav`.
+
+### 4. Flash the firmware (needs the hardware built)
+
+Install [PlatformIO](https://platformio.org/) (there's a VS Code extension),
+then:
 
 ```bash
 cd firmware
 pio run --target upload --upload-port /dev/ttyUSB0   # Linux
-# or /dev/cu.usbmodem*  on macOS
-# or  COM3              on Windows
-```
-
-Open the serial monitor to see live detections:
-```bash
+# or /dev/cu.usbmodem* on macOS, or COM3 on Windows
 pio device monitor
 ```
 
-### 4. Test it
+## Use your own sounds
 
-Play any of these sounds near the microphone:
-- Doorbell sound on your phone
-- Set a microwave timer beep
-- Play a fire alarm clip from YouTube
+To train on real recordings instead of the ESC-50 stand-ins:
 
-The device should vibrate and beep within ~1 second.
+1. Record 20-40 five-second WAV clips of the real sound
+2. Put them in `data/custom/<class_name>/`
+3. Add that folder to `TARGET_CLASSES` in `train_model.py`
+4. Re-run `python train_model.py`
 
----
+## How the firmware pipeline works
 
-## Training Your Own Model
+1. I2S reads 16 kHz audio into a ring buffer.
+2. `feature_extractor.h` turns each frame into 13 MFCC coefficients (the
+   same pre-emphasis, Hamming window, Mel filterbank, and DCT steps as
+   `train_model.py`, just written in C++ instead of relying on librosa).
+3. 32 of those frames are stacked into one sliding window (50% overlap).
+4. The window goes into the TFLite Micro interpreter, which outputs a
+   confidence score per class.
+5. If the top class scores above 0.72 confidence, `alert_manager.h` fires
+   that class's vibration + buzzer pattern.
 
-### Dataset: ESC-50
+The training pipeline (`ml/train_model.py`) is separate and runs on your
+laptop: it downloads ESC-50, extracts the same kind of MFCC features with
+librosa, trains the CNN in TensorFlow/Keras, quantizes it to int8, and
+writes out both the `.tflite` file and a `.h` file the firmware can compile
+directly.
 
-[ESC-50](https://github.com/karolpiczak/ESC-50) is a free, openly licensed dataset of 2,000 environmental audio recordings across 50 classes. The training script automatically downloads and filters the 5 classes we need.
+Model itself: 2 convolution blocks (16 then 32 filters), global average
+pooling, one 64-unit dense layer, then 5-way softmax. About 7,400
+parameters, roughly 45 KB after quantization.
 
-```
-data/
-└── ESC-50-master/
-    ├── audio/          ← 2000 WAV clips (5 s each, 44.1 kHz)
-    └── meta/
-        └── esc50.csv   ← labels and fold assignments
-```
-
-### Add Your Own Sounds
-
-To add a custom sound class (e.g. a specific appliance in your home):
-
-1. Record 20–40 five-second WAV clips of your sound
-2. Place them in `data/custom/<your_class_name>/`
-3. Add the class to `TARGET_CLASSES` in `train_model.py`
-4. Re-run training
-
-### Model Architecture
+## Repository layout
 
 ```
-Input: (32 frames × 13 MFCC coefficients × 1 channel)
-  ↓
-Conv2D(16, 3×3, ReLU) → BatchNorm → MaxPool(2×2) → Dropout(0.25)
-  ↓
-Conv2D(32, 3×3, ReLU) → BatchNorm → MaxPool(2×2) → Dropout(0.25)
-  ↓
-GlobalAveragePooling2D
-  ↓
-Dense(64, ReLU) → Dropout(0.4)
-  ↓
-Dense(5, Softmax)
+firmware/
+  platformio.ini            build config
+  src/main.cpp               I2S read + inference loop
+  src/feature_extractor.h    MFCC in C++
+  src/alert_manager.h        vibration/buzzer patterns
+  src/sound_model.h          generated by train_model.py, not in git
 
-Parameters: ~18,000  |  Quantised size: ~45 kB
+ml/
+  train_model.py             full training pipeline
+  demo.py                    hardware-free demo (see above)
+  requirements.txt
 ```
 
----
+## Status and known limits
 
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                    ESP32-S3 Firmware                     │
-│                                                          │
-│  I2S DMA Read (16 kHz) → Ring Buffer                     │
-│       ↓                                                  │
-│  FeatureExtractor: Pre-emphasis → Hamming window         │
-│       → Power spectrum → Mel filterbank → DCT → MFCC    │
-│       ↓                                                  │
-│  Sliding Window (32 frames, 50% overlap)                 │
-│       ↓                                                  │
-│  TFLite Micro Interpreter (quantised CNN)                │
-│       ↓                                                  │
-│  Confidence threshold (0.72)                             │
-│       ↓                                                  │
-│  AlertManager → Vibration + Buzzer patterns              │
-└─────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────┐
-│                  ML Training Pipeline                    │
-│  (runs on your laptop, produces firmware-ready header)   │
-│                                                          │
-│  ESC-50 WAV files → librosa MFCC extraction             │
-│       → CNN training (TensorFlow/Keras)                  │
-│       → int8 quantisation (TFLite converter)             │
-│       → sound_model.h (C byte array for firmware)       │
-└─────────────────────────────────────────────────────────┘
-```
-
----
-
-## Repository Structure
-
-```
-accessisound-esp32s3/
-├── firmware/
-│   ├── platformio.ini          ← PlatformIO build config
-│   └── src/
-│       ├── main.cpp            ← Main firmware (I2S + inference loop)
-│       ├── feature_extractor.h ← MFCC computation in C++
-│       ├── alert_manager.h     ← Vibration + buzzer patterns
-│       └── sound_model.h       ← Auto-generated (after training)
-│
-├── ml/
-│   ├── train_model.py          ← Full training pipeline
-│   └── requirements.txt        ← Python dependencies
-│
-├── docs/
-│   └── wiring_diagram.png      ← Hardware connection diagram
-│
-└── README.md
-```
-
----
-
-## Performance
-
-| Metric | Value |
-|---|---|
-| Inference latency | ~45–60 ms |
-| Model size (quantised) | ~45 kB |
-| Tensor arena | 60 kB |
-| Test accuracy (5 classes) | ~80 % |
-| False positive rate | <5 % at threshold 0.72 |
-| Power consumption | ~120 mA active, ~15 mA deep sleep |
-
----
-
-## Roadmap
-
-This was built during a hackathon. Future improvements:
-
-- [ ] **v1.1**: Wake-word detection to reduce false positives
-- [ ] **v1.2**: BLE companion app (iOS / Android) for configuration
-- [ ] **v2.0**: Upgrade to ESP32-CAM for vision-based alerts ([Ultimate Version](docs/ultimate-version.md))
-- [ ] **v2.1**: Larger dataset with real microwave / doorbell recordings
-- [ ] **v2.2**: OTA model updates over Wi-Fi
-
----
-
-## Contributing
-
-Pull requests are welcome! Please open an issue first to discuss what you'd like to change. If you have access to real microwave or doorbell recording equipment, audio clip contributions are especially valuable.
-
----
+- Firmware has not been run on real hardware. Wiring above is a build plan
+  from the pin definitions, not a tested result.
+- Training data is proxy sounds, not the real target sounds (see above).
+  Expect the shipped model to work best as a proof of concept, not as a
+  finished product.
+- No wake-word or noise-gating, and no trained "background/silence" class:
+  the model is a plain 5-way softmax over the 5 sound classes, so it always
+  picks one of them as "most likely" even during silence. The 72%
+  confidence threshold is the only thing stopping constant false alerts,
+  not an actual rejection class.
 
 ## License
 
-This project is licensed under the **MIT License**. See [LICENSE](LICENSE) for details.
+Code: MIT, see [LICENSE](LICENSE). The [ESC-50 dataset](https://github.com/karolpiczak/ESC-50)
+used for training is CC-BY licensed, separately from this repo's code.
 
-The [ESC-50 dataset](https://github.com/karolpiczak/ESC-50) used for training is licensed under **CC BY (Creative Commons Attribution)**.
+## Credits
 
----
-
-## Acknowledgements
-
-- [ESC-50 Dataset](https://github.com/karolpiczak/ESC-50) by Karol Piczak
+- [ESC-50](https://github.com/karolpiczak/ESC-50) dataset by Karol Piczak
 - [TensorFlow Lite for Microcontrollers](https://www.tensorflow.org/lite/microcontrollers)
-- [librosa](https://librosa.org/): audio feature extraction
-- Hackathon teammates and mentors
-
+- [librosa](https://librosa.org/) for audio feature extraction
