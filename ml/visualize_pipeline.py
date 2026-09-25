@@ -4,8 +4,8 @@ visualize_pipeline.py: make the AccessiSound algorithm visible
 ================================================================
 Draws every step from raw audio to an alert decision, using a from-scratch
 NumPy version of the firmware's own math (firmware/src/feature_extractor.h
-and the inference rule in firmware/src/main.cpp). No TensorFlow, no dataset
-download, no hardware needed.
+and the inference rule in firmware/src/main.cpp). It does not need TensorFlow,
+a dataset download or any dedicated hardware.
 
     python visualize_pipeline.py                 # built-in synthetic chime
     python visualize_pipeline.py clip.wav        # any 16-bit WAV
