@@ -24,5 +24,3 @@ firmware/.pioenvs/
 # macOS
 .DS_Store
 
-# Training reports (regenerate locally)
-models/training_report.png
