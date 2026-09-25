@@ -1,0 +1,62 @@
+{
+ "devkit": {
+  "side": "front",
+  "xmin": -5.719999999999999,
+  "xmax": 19.719999999999995,
+  "ymin": 2.579999999999999,
+  "ymax": 66.48,
+  "w": 604,
+  "h": 1518,
+  "file": "devkit_crop.png"
+ },
+ "cam": {
+  "side": "front",
+  "xmin": -37.519999999999996,
+  "xmax": -10.48,
+  "ymin": 70.99,
+  "ymax": 111.50999999999999,
+  "w": 1004,
+  "h": 1506,
+  "file": "cam_crop.png"
+ },
+ "mic": {
+  "side": "back",
+  "xmin": 22.359999999999996,
+  "xmax": 37.64,
+  "ymin": 92.99000000000001,
+  "ymax": 107.00999999999998,
+  "w": 1488,
+  "h": 1366,
+  "file": "mic_crop.png"
+ },
+ "charger": {
+  "side": "back",
+  "xmin": 19.99,
+  "xmax": 37.01,
+  "ymin": 2.38,
+  "ymax": 29.609999999999996,
+  "w": 944,
+  "h": 1509,
+  "file": "charger_crop.png"
+ },
+ "lipo": {
+  "side": "front",
+  "xmin": -33.01,
+  "xmax": -2.9899999999999993,
+  "ymin": 9.99,
+  "ymax": 52.02,
+  "w": 1076,
+  "h": 1506,
+  "file": "lipo_crop.png"
+ },
+ "driver": {
+  "side": "front",
+  "xmin": -36.02,
+  "xmax": -9.580000000000002,
+  "ymin": 7.98,
+  "ymax": 28.019999999999996,
+  "w": 1502,
+  "h": 1138,
+  "file": "driver_crop.png"
+ }
+}
