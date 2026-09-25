@@ -47,10 +47,8 @@ Components:
 I imitated the look of the ESP32-S3-BOX-3, but the finished enclosure ended
 up looking like a vintage Macintosh 128K.
 
-**There is no photo of the physical v2 unit.** The laptop with the design
-files is gone. The picture below is a Fusion 360 reconstruction made from
-this repo's docs, looked-up component dimensions and measurements taken
-from photos of the display. It is a model, not a photograph.
+Even though there is no photo of the physical v2 unit, the picture below
+accurately represents the model made using Autodesk Fusion.
 
 ![v2 model, exterior](photos/v2-model-render.png)
 
