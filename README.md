@@ -81,12 +81,11 @@ sound-recognition pipeline described next.
 The device listens through a microphone, turns each 32 ms slice of audio
 into 13 numbers (MFCCs), stacks 32 slices into a 0.53 second window, and
 runs a small CNN over it. If the top guess is at least 72 percent
-confident, it fires an alert. Everything runs on the ESP32-S3: no phone,
-no cloud.
+confident, it fires an alert. Everything runs entirely on the ESP32-S3.
 
 `ml/visualize_pipeline.py` draws every step using the firmware's own math,
-rewritten in NumPy. It needs only numpy, scipy and matplotlib, no dataset
-and no hardware:
+rewritten in NumPy. It doesn't need a large dataset or any dedicated
+hardware, just numpy, scipy and matplotlib:
 
 ```bash
 cd ml
@@ -99,24 +98,49 @@ The check compiles `firmware/src/feature_extractor.h` and compares it to the
 NumPy version on real frames. They agree to about 3e-5, which is float32
 rounding.
 
-**1. One frame of audio to 13 numbers.** Pre-emphasis, Hamming window, power
-spectrum, 26 mel filters, log, DCT.
+**1. One frame of audio to 13 numbers.** This figure follows a single 32 ms
+frame (512 samples) through the seven steps of the feature extractor, one
+panel per step, top to bottom:
+
+1. The raw 16 kHz waveform, with the frame being processed marked in red.
+2. Pre-emphasis, which boosts high frequencies where alarm and chime detail
+   lives.
+3. The Hamming window, which tapers the frame edges so the Fourier transform
+   does not smear.
+4. The power spectrum, the energy at each frequency (31.25 Hz per bin).
+5. The mel filterbank, 26 triangular filters from 80 Hz to 8 kHz, narrow at
+   low pitch and wide at high pitch like human hearing.
+6. The log of the energy in each filter.
+7. A DCT that compresses those 26 values into 13 MFCCs, the numbers the CNN
+   actually receives.
 
 ![One frame, step by step](docs/imgs/pipeline_steps.png)
 
-**2. The whole clip.** Spectrogram, then mel bands, then MFCCs. The cyan box
-is the 32-frame window the CNN sees.
+**2. The whole clip.** The same processing applied to every frame of a clip,
+shown as four stacked views that share one time axis: the raw waveform, a
+spectrogram (frequency content over time), the mel spectrogram (the same
+information folded into 26 perceptual bands), and the MFCCs (13 rows per
+frame). The cyan box marks the 32-frame window, about 0.53 seconds, that is
+handed to the CNN.
 
 ![Spectrogram to MFCC](docs/imgs/pipeline_features.png)
 
-**3. From MFCC window to alert.** The CNN (7,429 parameters), softmax, and
-the 0.72 rule from `firmware/src/main.cpp`. The two example score sets in
-this figure are illustrations of the rule, not outputs of a trained model.
+**3. From MFCC window to alert.** The left panel shows the 32 x 13 MFCC window
+going into the network. Next to it is the CNN itself (7,429 parameters: two
+convolution blocks, global average pooling and two dense layers). The bottom
+panels apply the alert rule from `firmware/src/main.cpp` to two example
+outputs: in case A the top score is above 0.72, so the alert fires, and in
+case B the top score is below 0.72, so the device stays quiet. The two sets
+of scores are illustrations chosen to show the rule, not outputs of a
+trained model.
 
 ![Classifier and alert rule](docs/imgs/pipeline_classifier.png)
 
-**4. Firmware versus training features.** The firmware and `train_model.py`
-do not compute identical MFCCs, see the known issues below.
+**4. Firmware versus training features.** The same audio run through the
+firmware's feature extractor (left) and through the librosa MFCC used by
+`train_model.py` (middle), both scaled for display, plus the correlation
+between the two for each coefficient (right). The patterns are similar but
+not identical, which is the mismatch described in the known issues below.
 
 ![Firmware vs training MFCC](docs/imgs/pipeline_train_vs_firmware.png)
 
