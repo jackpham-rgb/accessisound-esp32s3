@@ -1,9 +1,8 @@
 # AccessiSound
 
-An assistive device built around an ESP32-S3 that listens to the room,
-recognizes sounds, and tells the user about them. It has three real
-versions, described below. This repo holds the sound-recognition code, the
-hardware documentation and a 3D model of the v2 enclosure.
+A small device that listens to a room, recognizes sounds like a doorbell or an alarm, and alerts someone who cannot hear them, with buzzes and lights. It runs entirely on an ESP32-S3 microcontroller. [Portfolio page](https://jackpham-rgb.github.io/jack-portfolio/)
+
+It went through three versions. This repo holds the sound-recognition code, the hardware documentation and a 3D model of the v2 enclosure.
 
 | Version | What it was | Hardware |
 |---|---|---|
@@ -29,8 +28,7 @@ is the BOX-3 as sold, not something I made.
 ## v2: rebuilt at home
 
 After the hackathon I bought my own ESP32 board and components and rebuilt
-it as a custom device. Most parts came from AliExpress, but that seller is
-gone. The display is a 1.54 inch full color TFT, 240 x 240 pixels, ST7789
+it as a custom device. The display is a 1.54 inch full color TFT, 240 x 240 pixels, ST7789
 driver, SPI interface, 3.3 V, 65K colors. An equivalent part is on Amazon:
 [B0GVYMJVWH](https://www.amazon.com/dp/B0GVYMJVWH). Everything else was
 generic online parts.
@@ -69,19 +67,16 @@ cute mochi character animation on the display to make it feel friendlier.
 I gave it to him as a thank you for helping me brainstorm the original
 hackathon idea. He still uses it every day in his dorm kitchen.
 
-This device used to be listed separately on my resume and site as "AI
-Kitchen Accessibility Assistant". It is the same device, not a separate
-project.
+You may also see this version called "AI Kitchen Accessibility Assistant". It is the same device.
 
-The camera and animation code is not in this repo yet. What is here is the
+The camera and animation code is not in this repo. What is here is the
 sound-recognition pipeline described next.
 
 ## How the sound recognition works
 
-The device listens through a microphone, turns each 32 ms slice of audio
-into 13 numbers (MFCCs), stacks 32 slices into a 0.53 second window, and
-runs a small CNN over it. If the top guess is at least 72 percent
-confident, it fires an alert. Everything runs entirely on the ESP32-S3.
+Raw audio is 16,000 numbers a second, far too much for a tiny chip to reason about directly. So the device first squeezes each 32 ms slice of sound down to 13 numbers that describe its tone color, the way our ears group pitches. I learned these are called MFCCs, mel-frequency cepstral coefficients, so that is what I call them from here on.
+
+It stacks 32 slices into a 0.53 second window and hands that to a small neural network. The kind that scans across a grid looking for patterns is called a CNN, a convolutional neural network; mine has 7,429 parameters, small enough for the chip. The network outputs a confidence for each sound. If the top one is at least 72 percent, the device fires an alert. Everything runs entirely on the ESP32-S3.
 
 `ml/visualize_pipeline.py` draws every step using the firmware's own math,
 rewritten in NumPy. It doesn't need a large dataset or any dedicated
@@ -171,7 +166,7 @@ re-run.
 
 The firmware in `firmware/` targets an ESP32-S3-DevKitC-1 with an INMP441
 microphone, a vibration motor, a buzzer and two LEDs. Wiring for those is
-in [hardware/v2](hardware/v2/README.md#wiring). Install
+in [hardware/v2](hardware/v2/README.md#wiring-diagram). Install
 [PlatformIO](https://platformio.org/), then:
 
 ```bash
@@ -199,7 +194,7 @@ photos/          v1 presentation photo, v2 model renders
   s), and subtracts the mean across the 13 coefficients. On the same audio
   the two agree only partly (mean correlation 0.78, worst coefficient 0.39;
   figure 4). A model trained by this script and run by this firmware has
-  never been checked end to end. This is the first thing to fix.
+  never been checked end to end. Making the two match is the next revision.
 - **Accuracy is measured on stand-in sounds** (above), not on the real
   target sounds.
 - **The sound classifier has no "background" class.** It always picks one
@@ -207,7 +202,7 @@ photos/          v1 presentation photo, v2 model renders
   false alerts.
 - **This repo does not contain the speech recognition, camera, display or
   mochi animation code** mentioned in the version notes.
-- **The 3D model is a reconstruction.** Dimensions marked "assumed" in
+- **The 3D model is a reconstruction.** Dimensions listed as typical in
   [hardware/v2](hardware/v2/README.md) need to be measured on real parts
   before printing.
 
